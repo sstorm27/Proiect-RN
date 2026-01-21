@@ -1,0 +1,13 @@
+# Ignoră datele mari și modelele
+data/
+models/*.h5
+!models/.gitkeep
+
+# Cache Python
+__pycache__/
+*.pyc
+
+# IDE și Sistem
+.DS_Store
+.vscode/
+.idea/

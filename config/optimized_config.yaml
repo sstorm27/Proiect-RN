@@ -1,0 +1,16 @@
+model:
+  name: "Bidirectional LSTM with Logic Injection"
+  architecture: "Bi-LSTM + Dense(L2 Regularization)"
+  vocab_size: 12000
+  embedding_dim: 64
+  dropout: 0.5
+
+training:
+  epochs: 5
+  batch_size: 32
+  optimizer: "Adam (lr=0.0001)"
+
+data_strategy:
+  base_data: "Kaggle + Original (85k)"
+  augmentation: "Logic Injection (8000 edge cases)"
+  logic_types: ["Happy End", "Deception", "Double Negation", "Direct Denial"]
