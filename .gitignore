@@ -1,13 +1,19 @@
-# Ignoră datele mari și modelele
+# --- DATELE (Ceea ce ai cerut) ---
 data/
-models/*.h5
-!models/.gitkeep
+data/raw/
+data/processed/
+data/generated/
 
-# Cache Python
+# --- PYTHON CACHE (Obligatoriu de ignorat) ---
+# Acestea sunt fisiere compilate care apar automat si fac mizerie in repo
 __pycache__/
 *.pyc
 
-# IDE și Sistem
+# --- MEDIUL VIRTUAL (Obligatoriu de ignorat) ---
+# Folderul cu librarii este imens si nu se urca pe net
+venv/
+env/
+.venv/
+
+# --- ALTELE ---
 .DS_Store
-.vscode/
-.idea/
