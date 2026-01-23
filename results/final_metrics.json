@@ -1,7 +1,7 @@
 {
     "model": "optimized_model.h5",
-    "test_accuracy": 0.8642,
-    "test_f1_macro": 0.8548,
+    "test_accuracy": 0.8675,
+    "test_f1_macro": 0.8615,
     "vocab_size": 20000,
-    "epochs": 8
+    "epochs": 9
 }
