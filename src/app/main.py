@@ -9,7 +9,7 @@ from keras.layers import Layer, InputLayer, Embedding, Dense, LSTM, Bidirectiona
 import tensorflow.keras.backend as K
 
 # =========================================================
-# 🛠️ COMPATIBILITATE & ATTENTION (Păstrate pentru stabilitate)
+# 🛠️ COMPATIBILITATE & ATTENTION (NEMODIFICAT)
 # =========================================================
 def clean_config(config):
     trash_keys = ['batch_shape', 'time_major', 'quantization_config', 'ragged', 'optional']
@@ -57,46 +57,101 @@ class Attention(Layer):
         return K.sum(output, axis=1)
 
 # =========================================================
-# 🕵️ LOGICA HIBRIDĂ (Sliding Window & Prioritizare)
+# 🧹 PREPROCESARE PENTRU AI
+# =========================================================
+def preprocess_for_ai(text):
+    text = text.lower()
+    text = re.sub(r"[^a-z\s']", ' ', text)
+    # Stopwords care încurcă AI-ul, dar păstrăm structura de bază
+    stopwords = {
+        "the", "a", "an", "and", "or", "if", "because", "as", "what",
+        "of", "at", "by", "for", "with", "about", "against", "between", "into", "through", "during", "before", "after", "above", "below", "to", "from", "up", "down", "in", "out", "on", "off", "over", "under", "again", "further",
+        "then", "once", "here", "there", "when", "where", "why", "how", "all", "any", "both", "each", "few", "more", "most", "other", "some", "such",
+        "only", "own", "same", "so", "than", "too", "very",
+        "can", "will", "just", "should", "now",
+        "i", "me", "my", "myself", "we", "our", "ours", "ourselves", "you", "your", "yours", "yourself", "yourselves", "he", "him", "his", "himself", "she", "her", "hers", "herself", "it", "its", "itself", "they", "them", "their", "theirs", "themselves",
+        "am", "is", "are", "was", "were", "be", "been", "being", "have", "has", "had", "having", "do", "does", "did", "doing"
+    }
+    # NOTĂ: Am scos "but" din stopwords pentru că e important pentru contrast!
+    words = text.split()
+    clean_words = [w for w in words if w not in stopwords]
+    return " ".join(clean_words)
+
+# =========================================================
+# 🕵️ LOGICA HIBRIDĂ (Actualizată pentru "BUT")
 # =========================================================
 def heuristic_check(text, ai_score):
     text_clean = text.lower()
     words = text_clean.split()
     
-    # Liste de control
-    vital_elements = ["story", "plot", "acting", "script", "movie", "film"]
-    neg_triggers = ["terrible", "bad", "boring", "awful", "horrible", "worst", "predictable"]
-    pos_triggers = ["amazing", "masterpiece", "excellent", "great", "perfect", "brilliant", "incredible", "exquisite", "addicting", "superb"]
-    boring_idioms = ["watch paint dry", "watching paint dry", "cure for insomnia", "snoozefest"]
+    # --- 1. CONFIGURARE ---
+    vital_subjects = ["movie", "film", "story", "plot", "screenplay"]
+    secondary_subjects = ["music", "song", "soundtrack", "sound", "effects", "cgi"]
+    
+    neg_triggers = ["terrible", "bad", "boring", "awful", "horrible", "worst", "garbage", "trash", "disaster", "waste"]
+    # Am adăugat "great" aici pentru regula ta
+    pos_triggers = ["masterpiece", "amazing", "excellent", "perfect", "brilliant", "incredible", "exquisite", "superb", "great"]
+    
+    laugh_words = ["laugh", "funny", "hilarious", "comedy"]
+    
+    # --- 2. DETECTARE GEN ---
+    is_horror = any(w in text_clean for w in ["horror", "scary", "thriller", "slasher"])
+    is_comedy = any(w in text_clean for w in ["comedy", "romcom", "sitcom"])
+    
+    for word in laugh_words:
+        if word in text_clean:
+            if is_horror:
+                return 0.20, f"Râs la un film horror? Probabil e prost ('{word}' în context horror)"
+            elif is_comedy:
+                return 0.95, f"Comedie reușită ('{word}' detectat)"
 
-    # 1. STRUCTURI SPECIALE (REPARĂ image_d34a80.png)
-    # Punem această verificare prima pentru a prinde opiniile neutre
-    if "neither" in text_clean and ("nor" in text_clean or "or" in text_clean):
-        return 0.50, "Opinie neutră detectată (Neither/Nor)"
-
-    # 2. SARCASM
-    for idiom in boring_idioms:
-        if idiom in text_clean: return 0.10, f"Expresie detectată: {idiom}"
-
-    # 3. LOGICA DE PROXIMITATE (Rezolvă ierarhia Story vs Music)
+    # --- 3. IERARHIA SUBIECTELOR ---
     for i, word in enumerate(words):
-        if word in vital_elements:
-            start = max(0, i - 3)
-            end = min(len(words), i + 4)
+        if word in vital_subjects:
+            start = max(0, i - 4)
+            end = min(len(words), i + 5)
             window = words[start:end]
+            
             for neg in neg_triggers:
-                if neg in window: return 0.20, f"Elementul '{word}' descris negativ"
+                if neg in window:
+                    return 0.15, f"Subiectul principal '{word}' este descris ca '{neg}' (Prioritate maximă)"
+            
             for pos in pos_triggers:
-                if pos in window: return 0.95, f"Elementul '{word}' descris ca excepțional"
+                if pos in window:
+                    return 0.95, f"Subiectul principal '{word}' este descris ca '{pos}'"
 
-    # 4. CORECTOR VOCABULAR (Exquisite/Addicting)
-    for pos in pos_triggers:
-        if pos in words and ai_score < 0.5:
-            return 0.88, f"Cuvânt pozitiv puternic detectat: {pos}"
-
-    # 5. NEGAȚII
+    # --- 4. NEGAȚII ȘI NUANȚE ---
     if re.search(r"(not|n't)\s+(bad|terrible|awful|horrible)", text_clean):
         return 0.75, "Negație a negativului ('Not bad')"
+    
+    if "neither" in text_clean and ("nor" in text_clean or "or" in text_clean):
+        return 0.50, "Structură neutră (Neither/Nor)"
+
+    # --- 5. REGULA DE CONTRAST ("BUT") - FIX PENTRU PROBLEMA TA ---
+    # "Other people said X, BUT I think it is great"
+    if "but" in words:
+        # Luăm tot ce e după ultimul "but"
+        last_part = text_clean.split("but")[-1]
+        last_part_words = last_part.split()
+        
+        # Dacă partea de după "but" conține cuvinte puternic pozitive ("great", "amazing")
+        for pos in pos_triggers:
+            if pos in last_part_words:
+                # Verificăm să nu fie negate (ex: "but not great")
+                try:
+                    p_idx = last_part_words.index(pos)
+                    if p_idx > 0 and last_part_words[p_idx-1] in ["not", "isn't", "wasn't"]:
+                        continue # E negat
+                    return 0.95, f"Opinie finală pozitivă după 'but' ('{pos}')"
+                except: pass
+
+    # --- 6. FAIL-SAFE ---
+    for pos in pos_triggers:
+        if pos in words and ai_score < 0.5:
+            pos_index = words.index(pos)
+            if pos_index > 0 and words[pos_index-1] in ["not", "isn't", "wasn't"]:
+                return 0.20, f"Negație explicită: 'not {pos}'"
+            return 0.88, f"Cuvânt puternic detectat: '{pos}'"
 
     return ai_score, ""
 
@@ -105,7 +160,6 @@ def heuristic_check(text, ai_score):
 # =========================================================
 st.set_page_config(page_title="Sentiment AI", page_icon="🎭", layout="centered")
 
-# CSS pentru carduri moderne și animații
 st.markdown("""
     <style>
     .main { background-color: #f0f2f6; }
@@ -157,17 +211,19 @@ user_input = st.text_area("", placeholder="Scrie aici recenzia ta...", height=15
 
 if st.button("🔍 Analizează Sentimentul"):
     if user_input.strip():
-        # Predicție
-        seq = tokenizer.texts_to_sequences([user_input.lower()])
+        # 1. Curățare pentru AI
+        ai_input_text = preprocess_for_ai(user_input)
+        
+        # 2. Predicție
+        seq = tokenizer.texts_to_sequences([ai_input_text])
         pad = pad_sequences(seq, maxlen=200, padding='post', truncating='post')
         raw_score = float(model.predict(pad, verbose=0)[0][0])
         
-        # Logica Hibridă
+        # 3. Logica Hibridă
         final_score, msg = heuristic_check(user_input, raw_score)
         
         st.divider()
         
-        # Afișare rezultate cu carduri moderne
         if final_score > 0.55:
             st.markdown('<div class="sentiment-card pos">😊 POZITIV</div>', unsafe_allow_html=True)
         elif final_score < 0.45:
@@ -179,7 +235,8 @@ if st.button("🔍 Analizează Sentimentul"):
             st.info(f"✨ **Insight:** {msg}")
             
         with st.expander("🛠️ Detalii Tehnice"):
-            st.write(f"Scor Procesat: {final_score:.4f}")
-            st.write(f"Scor Neural Brut: {raw_score:.4f}")
+            st.write(f"**Text procesat:** `{ai_input_text}`") 
+            st.write(f"Scor Neural: {raw_score:.4f}")
+            st.write(f"Scor Final: {final_score:.4f}")
     else:
         st.warning("Te rugăm să introduci o recenzie.")
